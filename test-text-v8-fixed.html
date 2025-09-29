@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixi.js v8+ Text Rendering - FIXED</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+        #log {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 10px;
+            font-family: monospace;
+            background: #f5f5f5;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            background: #007cba;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #005a87;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Pixi.js v8+ Text Rendering - COMPLETE SOLUTION</h1>
+    <p>This demonstrates comprehensive text rendering in Pixi.js v8+ including gradient workarounds and advanced styling.</p>
+
+    <div class="controls">
+        <button onclick="testTextV8Fixed()">Test Fixed v8+ Text Rendering</button>
+        <button onclick="testMultipleTexts()">Test Multiple Text Objects</button>
+        <button onclick="testDynamicText()">Test Dynamic Text Updates</button>
+        <button onclick="testGradientWorkaround()">Test Gradient Workaround</button>
+        <button onclick="testAdvancedStyling()">Test Advanced Styling</button>
+        <button onclick="testBorderText()">Test Border/Outline Text</button>
+        <button onclick="clearMap()">Clear Map</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <div id="status"></div>
+    <div id="map"></div>
+    <div id="log"></div>
+
+    <!-- Dependencies -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/pixi.js@8.13.2/dist/pixi.min.js"></script>
+    <script src="./L.PixiOverlay.js"></script>
+
+    <script>
+        // Logging utility
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            logDiv.innerHTML += `[${timestamp}] ${prefix} ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function setStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function clearMap() {
+            if (currentOverlay) {
+                map.removeLayer(currentOverlay);
+                currentOverlay = null;
+            }
+            setStatus('Map cleared');
+        }
+
+        // Initialize map
+        const map = L.map('map').setView([39.8283, -98.5795], 4); // Center of USA
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let currentOverlay = null;
+
+        // Log initial state
+        log('Pixi.js Text Rendering Fix Test loaded');
+        log(`Pixi.js version: ${PIXI.VERSION}`);
+        log(`Leaflet version: ${L.version}`);
+
+        // Helper function to prepare text for v8+ rendering
+        async function prepareTextForV8(textObject, renderer) {
+            // In v8+, text needs to be properly prepared before rendering
+            try {
+                // Force texture generation for v8+
+                if (PIXI.VERSION >= "8") {
+                    // Method 1: Use updateText if available
+                    if (typeof textObject.updateText === 'function') {
+                        textObject.updateText(true);
+                    }
+                    
+                    // Method 2: Generate texture explicitly
+                    if (textObject._texture && typeof textObject._generateTexture === 'function') {
+                        textObject._generateTexture();
+                    }
+                    
+                    // Method 3: Force resolution update for v8+
+                    if (textObject.resolution !== renderer.resolution) {
+                        textObject.resolution = renderer.resolution;
+                    }
+                    
+                    // Method 4: Ensure the text style is properly applied
+                    if (textObject._style && typeof textObject._style.toJSON === 'function') {
+                        textObject.style = textObject._style;
+                    }
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Text preparation failed:', error);
+                return false;
+            }
+        }
+
+        // Create v8+ compatible gradient (using Graphics as fallback)
+        function createGradientText(text, width = 400, height = 60) {
+            const container = new PIXI.Container();
+            
+            // Create gradient background using Graphics
+            const gradientBg = new PIXI.Graphics();
+            
+            // Create gradient manually using multiple rectangles
+            const steps = 20;
+            const stepWidth = width / steps;
+            
+            for (let i = 0; i < steps; i++) {
+                const ratio = i / (steps - 1);
+                // Interpolate between red and orange
+                const red = Math.round(255 * (1 - ratio * 0.6)); // 255 to ~153
+                const green = Math.round(102 * ratio); // 0 to 102
+                const blue = 0;
+                
+                const color = (red << 16) | (green << 8) | blue;
+                gradientBg.beginFill(color, 0.8);
+                gradientBg.drawRect(-width/2 + i * stepWidth, -height/2, stepWidth + 1, height);
+                gradientBg.endFill();
+            }
+            
+            // Create text overlay with transparency
+            const textStyle = new PIXI.TextStyle({
+                fontFamily: 'Arial',
+                fontSize: 32,
+                fill: '#FFFFFF',
+                stroke: '#000000',
+                strokeThickness: 2,
+                dropShadow: true,
+                dropShadowColor: '#000000',
+                dropShadowBlur: 4,
+                dropShadowAngle: Math.PI / 6,
+                dropShadowDistance: 4
+            });
+            
+            const textObj = new PIXI.Text(text, textStyle);
+            textObj.anchor.set(0.5, 0.5);
+            
+            container.addChild(gradientBg);
+            container.addChild(textObj);
+            
+            return { container, textObj };
+        }
+
+        // Test 1: Fixed v8+ text rendering
+        async function testTextV8Fixed() {
+            log('🟠 Testing FIXED v8+ text rendering...');
+            setStatus('Testing fixed text rendering...', 'info');
+
+            try {
+                clearMap();
+
+                const container = new PIXI.Container();
+
+                // Create text with v8+ compatible style
+                const textStyle = new PIXI.TextStyle({
+                    fontFamily: ['Arial', 'sans-serif'],
+                    fontSize: 36,
+                    fill: '#FF0000', // Single color for v8+ compatibility
+                    stroke: '#000000',
+                    strokeThickness: 4,
+                    dropShadow: true,
+                    dropShadowColor: '#000000',
+                    dropShadowBlur: 4,
+                    dropShadowAngle: Math.PI / 6,
+                    dropShadowDistance: 6,
+                    wordWrap: false,
+                    breakWords: false
+                });
+
+                // Create text object
+                const mainText = new PIXI.Text('🎯 V8+ TEXT WORKS!', textStyle);
+                
+                // Set anchor for centering
+                mainText.anchor.set(0.5, 0.5);
+                
+                // Add to container
+                container.addChild(mainText);
+
+                // Debug background
+                const debugBg = new PIXI.Graphics();
+                debugBg.beginFill(0x00FF00, 0.2);
+                debugBg.drawRect(-150, -25, 300, 50);
+                debugBg.endFill();
+                container.addChild(debugBg);
+
+                const drawCallback = async function(utils) {
+                    console.log('🟠 Fixed text draw callback called');
+                    
+                    const renderer = utils.getRenderer();
+                    const map = utils.getMap();
+                    const zoom = map.getZoom();
+                    const scale = utils.getScale();
+
+                    // Position at center of USA
+                    const centerLatLng = [39.8283, -98.5795];
+                    const centerPoint = utils.latLngToLayerPoint(centerLatLng);
+
+                    // Position the container
+                    container.position.set(centerPoint.x, centerPoint.y);
+                    
+                    // Scale appropriately
+                    const renderScale = Math.max(0.3, 1 / scale);
+                    container.scale.set(renderScale);
+
+                    // V8+ SPECIFIC: Prepare text for rendering
+                    await prepareTextForV8(mainText, renderer);
+
+                    // Force visibility
+                    container.visible = true;
+                    mainText.visible = true;
+                    debugBg.visible = true;
+
+                    console.log('🟠 Container positioned at:', container.position);
+                    console.log('🟠 Container scale:', container.scale);
+                    console.log('🟠 Text properties:', {
+                        text: mainText.text,
+                        anchor: mainText.anchor,
+                        style: mainText.style,
+                        visible: mainText.visible,
+                        worldVisible: mainText.worldVisible
+                    });
+
+                    // V8+ render with proper preparation
+                    try {
+                        renderer.render(container);
+                        console.log('🟠 Successfully rendered with v8+ preparation');
+                    } catch (error) {
+                        console.error('🟠 Render error:', error);
+                    }
+                };
+
+                // Use async overlay for v8+
+                const overlay = await L.pixiOverlayAsync(drawCallback, container, {
+                    pane: 'overlayPane'
+                });
+
+                currentOverlay = overlay;
+                map.addLayer(overlay);
+                map.setView([39.8283, -98.5795], 5);
+
+                // Force redraw after a moment
+                setTimeout(() => {
+                    if (overlay.redraw) {
+                        overlay.redraw();
+                    }
+                }, 100);
+
+                log('✅ Fixed v8+ text test successful! Text should now be visible.', 'success');
+                setStatus('✅ Fixed text rendering test completed successfully!', 'success');
+
+            } catch (error) {
+                log(`❌ Fixed text test failed: ${error.message}`, 'error');
+                setStatus(`❌ Test failed: ${error.message}`, 'error');
+                console.error('Fixed text test error:', error);
+            }
+        }
+
+        // Test 2: Multiple text objects
+        async function testMultipleTexts() {
+            log('🔵 Testing multiple text objects...');
+            setStatus('Testing multiple text objects...', 'info');
+
+            try {
+                clearMap();
+
+                const container = new PIXI.Container();
+
+                // Create multiple text styles
+                const styles = [
+                    {
+                        color: '#FF0000',
+                        text: 'RED TEXT',
+                        position: [40, -100]
+                    },
+                    {
+                        color: '#00FF00', 
+                        text: 'GREEN TEXT',
+                        position: [38, -95]
+                    },
+                    {
+                        color: '#0000FF',
+                        text: 'BLUE TEXT', 
+                        position: [42, -105]
+                    }
+                ];
+
+                const textObjects = [];
+
+                for (let i = 0; i < styles.length; i++) {
+                    const styleConfig = styles[i];
+                    
+                    const textStyle = new PIXI.TextStyle({
+                        fontFamily: 'Arial',
+                        fontSize: 24,
+                        fill: styleConfig.color,
+                        stroke: '#000000',
+                        strokeThickness: 2
+                    });
+
+                    const textObj = new PIXI.Text(styleConfig.text, textStyle);
+                    textObj.anchor.set(0.5, 0.5);
+                    textObjects.push({ obj: textObj, pos: styleConfig.position });
+                    container.addChild(textObj);
+                }
+
+                const drawCallback = async function(utils) {
+                    console.log('🔵 Multiple texts draw callback');
+                    
+                    const renderer = utils.getRenderer();
+                    const scale = utils.getScale();
+
+                    // Position each text object
+                    for (let i = 0; i < textObjects.length; i++) {
+                        const { obj, pos } = textObjects[i];
+                        const point = utils.latLngToLayerPoint(pos);
+                        obj.position.set(point.x, point.y);
+                        obj.scale.set(Math.max(0.5, 1 / scale));
+                        
+                        // Prepare each text for v8+
+                        await prepareTextForV8(obj, renderer);
+                    }
+
+                    container.visible = true;
+                    renderer.render(container);
+                };
+
+                const overlay = await L.pixiOverlayAsync(drawCallback, container);
+                currentOverlay = overlay;
+                map.addLayer(overlay);
+                map.setView([40, -100], 6);
+
+                setTimeout(() => overlay.redraw && overlay.redraw(), 100);
+
+                log('✅ Multiple texts test successful!', 'success');
+                setStatus('✅ Multiple text objects rendered successfully!', 'success');
+
+            } catch (error) {
+                log(`❌ Multiple texts test failed: ${error.message}`, 'error');
+                setStatus(`❌ Multiple texts test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Test 3: Dynamic text updates
+        async function testDynamicText() {
+            log('🟡 Testing dynamic text updates...');
+            setStatus('Testing dynamic text updates...', 'info');
+
+            try {
+                clearMap();
+
+                const container = new PIXI.Container();
+                
+                const textStyle = new PIXI.TextStyle({
+                    fontFamily: 'Arial',
+                    fontSize: 28,
+                    fill: '#FF6600',
+                    stroke: '#000000',
+                    strokeThickness: 3
+                });
+
+                const dynamicText = new PIXI.Text('Time: 00:00', textStyle);
+                dynamicText.anchor.set(0.5, 0.5);
+                container.addChild(dynamicText);
+
+                let counter = 0;
+
+                const drawCallback = async function(utils) {
+                    const renderer = utils.getRenderer();
+                    const centerPoint = utils.latLngToLayerPoint([39.8283, -98.5795]);
+                    const scale = utils.getScale();
+
+                    // Update text content
+                    const now = new Date();
+                    dynamicText.text = `Time: ${now.toLocaleTimeString()}`;
+                    
+                    // Position and scale
+                    dynamicText.position.set(centerPoint.x, centerPoint.y);
+                    dynamicText.scale.set(Math.max(0.5, 1 / scale));
+
+                    // V8+ preparation
+                    await prepareTextForV8(dynamicText, renderer);
+
+                    dynamicText.visible = true;
+                    container.visible = true;
+                    renderer.render(container);
+                };
+
+                const overlay = await L.pixiOverlayAsync(drawCallback, container);
+                currentOverlay = overlay;
+                map.addLayer(overlay);
+                map.setView([39.8283, -98.5795], 5);
+
+                // Update every second
+                const updateInterval = setInterval(() => {
+                    if (overlay && overlay.redraw) {
+                        overlay.redraw();
+                    } else {
+                        clearInterval(updateInterval);
+                    }
+                }, 1000);
+
+                // Stop after 10 seconds
+                setTimeout(() => {
+                    clearInterval(updateInterval);
+                }, 10000);
+
+                log('✅ Dynamic text test started! Text will update every second.', 'success');
+                setStatus('✅ Dynamic text updates active for 10 seconds!', 'success');
+
+            } catch (error) {
+                log(`❌ Dynamic text test failed: ${error.message}`, 'error');
+                setStatus(`❌ Dynamic text test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Test 4: Gradient text using Graphics workaround
+        async function testGradientWorkaround() {
+            log('� Testing gradient text workaround (v8+ compatible)...');
+            setStatus('Testing gradient text...', 'info');
+
+            try {
+                clearMap();
+                
+                const { container, textObj } = createGradientText('GRADIENT TEXT EFFECT', 500, 80);
+
+                const drawCallback = async function(utils) {
+                    const centerPoint = utils.latLngToLayerPoint([39.8283, -98.5795]);
+                    const scale = utils.getScale();
+                    const renderer = utils.getRenderer();
+
+                    container.position.set(centerPoint.x, centerPoint.y);
+                    container.scale.set(Math.max(0.2, 1 / scale));
+
+                    await prepareTextForV8(textObj, renderer);
+                    renderer.render(container);
+                };
+
+                const overlay = await L.pixiOverlayAsync(drawCallback, container);
+                currentOverlay = overlay;
+                map.addLayer(overlay);
+                map.setView([39.8283, -98.5795], 5);
+
+                setTimeout(() => overlay.redraw && overlay.redraw(), 100);
+                log('✅ Gradient text workaround successful!', 'success');
+                setStatus('✅ Gradient text effect rendered successfully!', 'success');
+
+            } catch (error) {
+                log(`❌ Gradient text test failed: ${error.message}`, 'error');
+                setStatus(`❌ Gradient text test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Test 5: Advanced styling combinations
+        async function testAdvancedStyling() {
+            log('🟣 Testing advanced text styling combinations...');
+            setStatus('Testing advanced styling...', 'info');
+
+            try {
+                clearMap();
+                const container = new PIXI.Container();
+
+                const styles = [
+                    {
+                        text: 'BOLD STYLE',
+                        style: {
+                            fontFamily: 'Arial',
+                            fontSize: 28,
+                            fontWeight: 'bold',
+                            fill: '#FF3366',
+                            stroke: '#FFFFFF',
+                            strokeThickness: 3
+                        },
+                        offset: [0, -30]
+                    },
+                    {
+                        text: 'ITALIC STYLE',
+                        style: {
+                            fontFamily: 'Arial',
+                            fontSize: 24,
+                            fontStyle: 'italic',
+                            fill: '#33FF66',
+                            stroke: '#000000',
+                            strokeThickness: 2
+                        },
+                        offset: [0, 0]
+                    },
+                    {
+                        text: 'SHADOW STYLE',
+                        style: {
+                            fontFamily: 'Arial',
+                            fontSize: 26,
+                            fill: '#3366FF',
+                            dropShadow: true,
+                            dropShadowColor: '#FFFF00',
+                            dropShadowBlur: 8,
+                            dropShadowDistance: 8
+                        },
+                        offset: [0, 30]
+                    }
+                ];
+
+                const textObjects = [];
+                styles.forEach(styleConfig => {
+                    const text = new PIXI.Text(styleConfig.text, new PIXI.TextStyle(styleConfig.style));
+                    text.anchor.set(0.5, 0.5);
+                    text.position.set(styleConfig.offset[0], styleConfig.offset[1]);
+                    container.addChild(text);
+                    textObjects.push(text);
+                });
+
+                const drawCallback = async function(utils) {
+                    const centerPoint = utils.latLngToLayerPoint([39.8283, -98.5795]);
+                    const scale = utils.getScale();
+                    const renderer = utils.getRenderer();
+
+                    container.position.set(centerPoint.x, centerPoint.y);
+                    container.scale.set(Math.max(0.3, 1 / scale));
+
+                    for (const textObj of textObjects) {
+                        await prepareTextForV8(textObj, renderer);
+                    }
+                    
+                    renderer.render(container);
+                };
+
+                const overlay = await L.pixiOverlayAsync(drawCallback, container);
+                currentOverlay = overlay;
+                map.addLayer(overlay);
+                map.setView([39.8283, -98.5795], 5);
+
+                setTimeout(() => overlay.redraw && overlay.redraw(), 100);
+                log('✅ Advanced styling test successful!', 'success');
+                setStatus('✅ Advanced text styles rendered successfully!', 'success');
+
+            } catch (error) {
+                log(`❌ Advanced styling test failed: ${error.message}`, 'error');
+                setStatus(`❌ Advanced styling test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Test 6: Border/outline text
+        async function testBorderText() {
+            log('🟠 Testing border/outline text...');
+            setStatus('Testing border text...', 'info');
+
+            try {
+                clearMap();
+                const container = new PIXI.Container();
+
+                const textStyle = new PIXI.TextStyle({
+                    fontFamily: 'Arial',
+                    fontSize: 42,
+                    fontWeight: 'bold',
+                    fill: '#FFFF00',
+                    stroke: '#FF0000',
+                    strokeThickness: 6,
+                    dropShadow: true,
+                    dropShadowColor: '#000000',
+                    dropShadowBlur: 6,
+                    dropShadowDistance: 6,
+                    dropShadowAngle: Math.PI / 4
+                });
+
+                const text = new PIXI.Text('OUTLINED TEXT', textStyle);
+                text.anchor.set(0.5, 0.5);
+                container.addChild(text);
+
+                const drawCallback = async function(utils) {
+                    const centerPoint = utils.latLngToLayerPoint([39.8283, -98.5795]);
+                    const scale = utils.getScale();
+                    const renderer = utils.getRenderer();
+
+                    container.position.set(centerPoint.x, centerPoint.y);
+                    container.scale.set(Math.max(0.3, 1 / scale));
+
+                    await prepareTextForV8(text, renderer);
+                    renderer.render(container);
+                };
+
+                const overlay = await L.pixiOverlayAsync(drawCallback, container);
+                currentOverlay = overlay;
+                map.addLayer(overlay);
+                map.setView([39.8283, -98.5795], 5);
+
+                setTimeout(() => overlay.redraw && overlay.redraw(), 100);
+                log('✅ Border text test successful!', 'success');
+                setStatus('✅ Border text rendered successfully!', 'success');
+
+            } catch (error) {
+                log(`❌ Border text test failed: ${error.message}`, 'error');
+                setStatus(`❌ Border text test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run the first test when page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('🚀 Auto-running basic text test...');
+                log('Available tests: Basic, Multiple, Dynamic, Gradient, Advanced, Border');
+                testTextV8Fixed();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

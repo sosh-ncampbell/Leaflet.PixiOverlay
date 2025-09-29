@@ -353,6 +353,38 @@
             }
           }
         },
+        // v8+ Text rendering helper for proper texture preparation
+        prepareTextForV8: function (textObject) {
+          if (PIXI.VERSION >= "8" && textObject && textObject.constructor.name === 'Text') {
+            try {
+              // Force texture generation for v8+
+              if (typeof textObject.updateText === 'function') {
+                textObject.updateText(true);
+              }
+              
+              // Generate texture explicitly if method exists
+              if (textObject._texture && typeof textObject._generateTexture === 'function') {
+                textObject._generateTexture();
+              }
+              
+              // Force resolution update for v8+
+              if (_layer._renderer && textObject.resolution !== _layer._renderer.resolution) {
+                textObject.resolution = _layer._renderer.resolution;
+              }
+              
+              // Ensure the text style is properly applied
+              if (textObject._style && typeof textObject._style.toJSON === 'function') {
+                textObject.style = textObject._style;
+              }
+              
+              return true;
+            } catch (error) {
+              console.warn("Text preparation for v8+ failed:", error);
+              return false;
+            }
+          }
+          return true; // Return true for non-text objects or older versions
+        },
         getContainer: function () {
           return _layer._pixiContainer;
         },
