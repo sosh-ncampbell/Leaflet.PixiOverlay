@@ -1,8 +1,8 @@
 {
   "name": "leaflet-pixi-overlay",
-  "description": "Leaflet Plugin: Pixi.js Overlay",
-  "author": "Manuel Baclet <mbaclet@gmail.com>",
-  "version": "1.9.4",
+  "description": "Leaflet Plugin: Pixi.js Overlay with v8 compatibility",
+  "author": "Nick Campbell <s0ma@protonmail.com>",
+  "version": "2.0.0-beta.1",
   "main": "L.PixiOverlay.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -22,7 +22,7 @@
   "homepage": "https://github.com/manubb/Leaflet.PixiOverlay#readme",
   "peerDependencies": {
     "leaflet": ">=0.7",
-    "pixi.js": ">=4.6"
+    "pixi.js": ">=4.6 || ^8.0.0"
   },
   "devDependencies": {
     "barbiche": "^3.0.10",

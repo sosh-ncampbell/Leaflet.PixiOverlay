@@ -13,11 +13,14 @@ for drawing using WebGL that seamlessly falls back to HTML5's canvas if needed. 
 
 ## Features
 
- * No limitations to polylines, circles or geoJSON. Draw whatever you want with Pixi.js
- * No need to reproject your geometries on zoom, this is done using scaling
- * Zoom animation where Leaflet supports it
+* No limitations to polylines, circles or geoJSON. Draw whatever you want with Pixi.js
+* No need to reproject your geometries on zoom, this is done using scaling
+* Zoom animation where Leaflet supports it
+* **Pixi.js v8+ compatibility** with async renderer initialization
+* **Enhanced memory management** with improved cleanup patterns
+* **WebGL state management** for better integration with other WebGL libraries
 
-*Supports leaflet@0.7, 1 and pixi.js@4, 5, 6, 7*
+*Supports leaflet@0.7, 1 and pixi.js@4, 5, 6, 7, 8*
 
 ## Demo
 
@@ -38,7 +41,9 @@ French legislative 2017 election results: [first round](https://manubb.github.io
 (*[graph-draw](https://www.npmjs.com/package/graph-draw) is used to display boundaries in the election demos when rendered in WebGL*)
 
 ## Installation
+
 Leaflet.PixiOverlay is available as a npm package:
+
 ```
 npm install leaflet-pixi-overlay
 ```
@@ -53,6 +58,7 @@ Include Pixi.js and the PixiOverlay libraries:
 <script src="pixi.min.js"></script>
 <script src="L.PixiOverlay.min.js"></script>
 ```
+
 Create a map:
 
 ```js
@@ -72,9 +78,11 @@ Add it to the map:
 ```js
 pixiOverlay.addTo(map);
 ```
+
 ## Examples
 
 ### Draw a marker
+
 ```js
 const markerTexture = await PIXI.Assets.load('img/marker-icon.png');
 const markerLatLng = [51.5, -0.09];
@@ -111,7 +119,9 @@ const pixiOverlay = L.pixiOverlay((utils) => {
 
 pixiOverlay.addTo(map);
 ```
+
 ### Draw a triangle
+
 ```js
 const polygonLatLngs = [
     [51.509, -0.08],
@@ -158,47 +168,51 @@ pixiOverlay.addTo(map);
 
 ## API
 
-### *Factory method*
+### *Factory methods*
 
     L.pixiOverlay(<function> drawCallback, <PIXI.Container> container, <options> options?)
+    L.pixiOverlayAsync(<function> drawCallback, <PIXI.Container> container, <options> options?)
 
- * `drawCallback` - callback to draw/update overlay contents.
- * `container` - a Pixi container (a subclass of `PIXI.Container`).
- * `options` - overlay options object.
+* `drawCallback` - callback to draw/update overlay contents.
+* `container` - a Pixi container (a subclass of `PIXI.Container`).
+* `options` - overlay options object.
+
+**Note**: `L.pixiOverlayAsync()` returns a Promise and is recommended for Pixi.js v8+ applications for better error handling and performance.
 
 *Drawing callback function*
 
     drawCallback(utils, eventOrCustomData)
 
- * `utils` - helper object. Contains methods to work with layers coordinate system and scaling.
- * `eventOrCustomData` - Contains either the Leaflet event that causes the redraw (`moveend` event) or a plain object `{type: 'add'}` when the pixi layer is added to the map or the argument of a `redraw` call.
+* `utils` - helper object. Contains methods to work with layers coordinate system and scaling.
+* `eventOrCustomData` - Contains either the Leaflet event that causes the redraw (`moveend` event) or a plain object `{type: 'add'}` when the pixi layer is added to the map or the argument of a `redraw` call.
 
 *Overlay options object*
 
 available fields:
 
- * `padding` - (number; defaults to `0.1`) How much to extend the drawing area around the map view (relative to its size).
- * `forceCanvas` - (bool; defaults to `false`) Force use of a 2d-canvas for rendering.
- * `doubleBuffering` - (bool; default to `false`) Activate double buffering to prevent flickering when refreshing display on some devices (especially iOS devices). This field is ignored if rendering is done with 2d-canvas.
- * `resolution` - (number; defaults to `2` on retina devices and `1` elsewhere) Resolution of the renderer.
- * `projectionZoom` - (function(map): Number; defaults to function that returns the average of `map.getMinZoom()` and `map.getMaxZoom()` if the latter is finite else it returns `map.getMinZoom() + 8`) returns the projection zoom level. Customizing this option can help if you experience visual artifacts.
- * `pane` - (string; defaults to `'overlayPane'`) The Leaflet [pane](http://leafletjs.com/reference-1.3.0.html#map-pane) where the overlay container is inserted.
- * `destroyInteractionManager` - (bool; defaults to `false`) Destroy [PIXI EventSystem](https://pixijs.download/release/docs/PIXI.EventSystem.html). This is useful when you do not need to use PIXI interaction.
- * `autoPreventDefault` - (bool; defaults to `true`) Customize [PIXI EventSystem](https://pixijs.download/release/docs/PIXI.EventSystem.html) `autoPreventDefault` property. This option is ignored if `destroyInteractionManager` is `true`. This should be set to `false` in most situations to let all dom events flow from PIXI to leaflet but it is set by default for compatibility reason.
- * `preserveDrawingBuffer` - (bool; defaults to `false`) Enables drawing buffer preservation, enable this if you need to call toDataUrl on the webgl context.
- * `clearBeforeRender` - (bool; defaults to `true`) This sets if the renderer will clear the canvas or not before the new render pass.
- * `shouldRedrawOnMove` - (function(e: moveEvent): Boolean; defaults to `function () {return false;}`) Move events trigger a redraw when this function returns `true`. For example using `function (e) {return e.flyTo || e.pinch;}` will trigger redraws during `flyTo` animation and pinch zooms.
+* `padding` - (number; defaults to `0.1`) How much to extend the drawing area around the map view (relative to its size).
+* `forceCanvas` - (bool; defaults to `false`) Force use of a 2d-canvas for rendering.
+* `doubleBuffering` - (bool; default to `false`) Activate double buffering to prevent flickering when refreshing display on some devices (especially iOS devices). This field is ignored if rendering is done with 2d-canvas.
+* `resolution` - (number; defaults to `2` on retina devices and `1` elsewhere) Resolution of the renderer.
+* `projectionZoom` - (function(map): Number; defaults to function that returns the average of `map.getMinZoom()` and `map.getMaxZoom()` if the latter is finite else it returns `map.getMinZoom() + 8`) returns the projection zoom level. Customizing this option can help if you experience visual artifacts.
+* `pane` - (string; defaults to `'overlayPane'`) The Leaflet [pane](http://leafletjs.com/reference-1.3.0.html#map-pane) where the overlay container is inserted.
+* `destroyInteractionManager` - (bool; defaults to `false`) Destroy [PIXI EventSystem](https://pixijs.download/release/docs/PIXI.EventSystem.html). This is useful when you do not need to use PIXI interaction.
+* `autoPreventDefault` - (bool; defaults to `true`) Customize [PIXI EventSystem](https://pixijs.download/release/docs/PIXI.EventSystem.html) `autoPreventDefault` property. This option is ignored if `destroyInteractionManager` is `true`. This should be set to `false` in most situations to let all dom events flow from PIXI to leaflet but it is set by default for compatibility reason.
+* `preserveDrawingBuffer` - (bool; defaults to `false`) Enables drawing buffer preservation, enable this if you need to call toDataUrl on the webgl context.
+* `clearBeforeRender` - (bool; defaults to `true`) This sets if the renderer will clear the canvas or not before the new render pass.
+* `shouldRedrawOnMove` - (function(e: moveEvent): Boolean; defaults to `function () {return false;}`) Move events trigger a redraw when this function returns `true`. For example using `function (e) {return e.flyTo || e.pinch;}` will trigger redraws during `flyTo` animation and pinch zooms.
 
 *Utils object*
 
 available methods:
 
- * `latLngToLayerPoint(latLng, zoom?)` - (function) returns `L.Point` projected from `L.LatLng` in the coordinate system of the overlay.
- * `layerPointToLatLng(point, zoom?)` - (function) returns `L.LatLng` projected back from `L.Point` into the original CRS.
- * `getScale(zoom?)` - (function) return the current scale factor of the overlay or the scale factor associated to zoom value.
- * `getRenderer()` - (function) return the current PIXI renderer.
- * `getContainer()` - (function) return the PIXI container used in the overlay.
- * `getMap()` - (function) return the current map.
+* `latLngToLayerPoint(latLng, zoom?)` - (function) returns `L.Point` projected from `L.LatLng` in the coordinate system of the overlay.
+* `layerPointToLatLng(point, zoom?)` - (function) returns `L.LatLng` projected back from `L.Point` into the original CRS.
+* `getScale(zoom?)` - (function) return the current scale factor of the overlay or the scale factor associated to zoom value.
+* `getRenderer()` - (function) return the current PIXI renderer.
+* `getContainer()` - (function) return the PIXI container used in the overlay.
+* `getMap()` - (function) return the current map.
+* `resetWebGLState()` - (function) reset WebGL state for better integration with other WebGL libraries (v8.10.0+ feature).
 
 ### *Instance methods*
 
@@ -208,53 +222,78 @@ available methods:
 
 ## Changelog
 
+### 2.0.0-beta.1 (Sep 29, 2025)
+
+* **Major**: Add full Pixi.js v8+ compatibility with async renderer initialization
+* Add `L.pixiOverlayAsync()` factory method for better v8+ support
+* Enhanced memory management with WorkerManager.reset() support
+* Add WebGL state management with `resetWebGLState()` utility
+* Improve gradient and textureSpace compatibility (v8.8.0+ changes)
+* Fix initialization race conditions that could cause errors
+* Add comprehensive test suite for v8 compatibility
+* Maintain full backward compatibility with Pixi.js v4-v7
+
 ### 1.9.3 (Feb 22, 2023)
-- Add support for `destroy` method
+
+* Add support for `destroy` method
 
 ### 1.8.4 (Feb 19, 2023)
-- Add support for pixi.js@7 (and remove deprecation warning for pixi.js@6)
+
+* Add support for pixi.js@7 (and remove deprecation warning for pixi.js@6)
 
 ### 1.8.2 (May 18, 2021)
-- Improve default `projectionZoom` function
+
+* Improve default `projectionZoom` function
 
 ### 1.8.1 (May 2, 2019)
-- Fix a pinch zoom regression introduced in 1.8.0
+
+* Fix a pinch zoom regression introduced in 1.8.0
 
 ### 1.8.0 (Apr 30, 2019)
-- Add support for redrawing the layer during flyTo animations and pinch zooms (This is disabled by default. See `shouldRedrawOnMove` option to enable it.)
-- Both pixi.js@5 and pixi.js-legacy@5 should be supported now
+
+* Add support for redrawing the layer during flyTo animations and pinch zooms (This is disabled by default. See `shouldRedrawOnMove` option to enable it.)
+* Both pixi.js@5 and pixi.js-legacy@5 should be supported now
 
 ### 1.7.0 (Mar 20, 2019)
-- Add basic support for pixi.js-legacy@5
+
+* Add basic support for pixi.js-legacy@5
 
 ### 1.6.0 (Nov 26, 2018)
-- Add `preserveDrawingBuffer` and `clearBeforeRender` options
+
+* Add `preserveDrawingBuffer` and `clearBeforeRender` options
 
 ### 1.5.0 (Apr 13, 2018)
-- Bug fixes
-- Add options for PIXI Interaction Manager
-- Improved documentation
+
+* Bug fixes
+* Add options for PIXI Interaction Manager
+* Improved documentation
 
 ### 1.4.2 (Mar 27, 2018)
-- Improved behavior when `doubleBuffering` is enabled
-- Remove event listeners on layer remove wih Leaflet 0.7.x
+
+* Improved behavior when `doubleBuffering` is enabled
+* Remove event listeners on layer remove wih Leaflet 0.7.x
 
 ### 1.4.0 (Mar 25, 2018)
-- Add second argument to `drawCallback`, improving control over redraw logic
-- No need to recompute container transform on `redraw` calls (performance improvement)
+
+* Add second argument to `drawCallback`, improving control over redraw logic
+* No need to recompute container transform on `redraw` calls (performance improvement)
 
 ### 1.3.0 (Jan 22, 2018)
-- Add `redraw` method
+
+* Add `redraw` method
 
 ### 1.2.0 (Jan 20, 2018)
-- Add `doubleBuffering` option to get rid of flickering on iOS devices
+
+* Add `doubleBuffering` option to get rid of flickering on iOS devices
 
 ### 1.1.3 (Jan 20, 2018)
-- Minor improvements
-- Add support for leaflet@0.7.x (thanks to [dzwiedzmin](https://github.com/dzwiedzmin))
+
+* Minor improvements
+* Add support for <leaflet@0.7.x> (thanks to [dzwiedzmin](https://github.com/dzwiedzmin))
 
 ### 1.0.0 (Sep 2, 2017)
-- Initial release
+
+* Initial release
 
 ## License
 

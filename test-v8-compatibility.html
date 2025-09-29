@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>L.PixiOverlay v8 Compatibility Test</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+        #log {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 10px;
+            font-family: monospace;
+            background: #f5f5f5;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            background: #007cba;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #005a87;
+        }
+    </style>
+</head>
+<body>
+    <h1>Leaflet.PixiOverlay v2.0.0-beta.1 - Pixi.js v8 Compatibility Test</h1>
+
+    <div class="controls">
+        <button onclick="testSyncAPI()">Test Sync API (L.pixiOverlay)</button>
+        <button onclick="testAsyncAPI()">Test Async API (L.pixiOverlayAsync)</button>
+        <button onclick="testOriginAPI()">Test Origin (0,0)</button>
+        <button onclick="testGradientAPI()">Test Gradients (v8.8.0+)</button>
+        <button onclick="testTextAPI()">Test Text Rendering</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <div id="map"></div>
+    <div id="log"></div>
+
+    <!-- Dependencies -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/pixi.js@8.13.2/dist/pixi.min.js"></script>
+    <script src="./L.PixiOverlay.js"></script>
+
+    <script>
+        // Logging utility
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            logDiv.innerHTML += `[${timestamp}] ${prefix} ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // Initialize map
+        const map = L.map('map').setView([39.8283, -98.5795], 4); // Center of USA
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let currentOverlay = null;
+
+        // Test sync API
+        function testSyncAPI() {
+            log('Testing L.pixiOverlay() (sync API)...');
+
+            try {
+                if (currentOverlay) {
+                    map.removeLayer(currentOverlay);
+                }
+
+                // Create PIXI container and graphics
+                const container = new PIXI.Container();
+                const graphics = new PIXI.Graphics();
+
+                // Draw a simple test shape (red circle)
+                graphics.beginFill(0xFF0000, 0.8);
+                graphics.drawCircle(0, 0, 50); // Larger circle for visibility
+                graphics.endFill();
+                container.addChild(graphics);
+
+                // Draw callback - L.PixiOverlay handles scaling and positioning
+                const drawCallback = function(utils) {
+                    console.log('🔴 Sync draw callback called!');
+
+                    // Position graphics at test location (Denver, Colorado area)
+                    const testLatLng = new L.LatLng(39.7392, -104.9903);
+                    const point = utils.latLngToLayerPoint(testLatLng);
+
+                    console.log('🔴 Denver position:', testLatLng, '-> point:', point);
+                    console.log('🔴 Map zoom:', utils.getMap().getZoom(), 'Initial zoom:', utils.getScale());
+
+                    // Update graphics position
+                    graphics.x = point.x;
+                    graphics.y = point.y;
+
+                    console.log('🔴 Graphics positioned at:', graphics.x, graphics.y);
+                    console.log('🔴 Container children:', container.children.length);
+
+                    // Force visibility
+                    graphics.visible = true;
+                    container.visible = true;
+
+                    // Manually render the container using the renderer
+                    try {
+                        const renderer = utils.getRenderer();
+                        if (renderer) {
+                            console.log('🔴 Manually rendering container...');
+                            renderer.render(container);
+                        } else {
+                            console.log('🔴 No renderer available!');
+                        }
+                    } catch (error) {
+                        console.error('🔴 Render error:', error);
+                    }
+                };                // Create overlay
+                currentOverlay = L.pixiOverlay(drawCallback, container, {
+                    pane: 'overlayPane'
+                });
+
+                if (currentOverlay) {
+                    console.log('🔴 Adding overlay to map...');
+                    map.addLayer(currentOverlay);
+
+                    // Pan to test location to make sure it's visible
+                    map.setView([39.7392, -104.9903], 8);
+
+                    // Manually trigger a redraw to ensure callback is called
+                    setTimeout(() => {
+                        console.log('🔴 Manually triggering redraw...');
+                        if (currentOverlay.redraw) {
+                            currentOverlay.redraw();
+                        }
+                    }, 100);
+
+                    log('✅ Sync API test successful! Red circle should be visible in Denver area.', 'success');
+                } else {
+                    log('❌ Failed to create overlay with sync API', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ Sync API test failed: ${error.message}`, 'error');
+                console.error('Sync API test error:', error);
+            }
+        }        // Test async API
+        function testAsyncAPI() {
+            log('Testing L.pixiOverlayAsync() (async API)...');
+
+            try {
+                if (currentOverlay) {
+                    map.removeLayer(currentOverlay);
+                }
+
+                // Create PIXI container and graphics
+                const container = new PIXI.Container();
+                const graphics = new PIXI.Graphics();
+
+                // Draw a test shape (blue square)
+                graphics.beginFill(0x0000FF, 0.8);
+                graphics.drawRect(-25, -25, 50, 50); // Larger square for visibility
+                graphics.endFill();
+                container.addChild(graphics);
+
+                // Draw callback - L.PixiOverlay handles scaling and positioning
+                const drawCallback = function(utils) {
+                    console.log('🔵 Async draw callback called!');
+
+                    // Position graphics at test location (Austin, Texas area)
+                    const testLatLng = new L.LatLng(30.2672, -97.7431);
+                    const point = utils.latLngToLayerPoint(testLatLng);
+
+                    console.log('🔵 Austin position:', testLatLng, '-> point:', point);
+                    console.log('🔵 Map zoom:', utils.getMap().getZoom(), 'Initial zoom:', utils.getScale());
+
+                    // Update graphics position
+                    graphics.x = point.x;
+                    graphics.y = point.y;
+
+                    console.log('🔵 Graphics positioned at:', graphics.x, graphics.y);
+                    console.log('🔵 Container children:', container.children.length);
+
+                    // Force visibility
+                    graphics.visible = true;
+                    container.visible = true;
+
+                    // Manually render the container using the renderer
+                    try {
+                        const renderer = utils.getRenderer();
+                        if (renderer) {
+                            console.log('🔵 Manually rendering container...');
+                            renderer.render(container);
+                        } else {
+                            console.log('🔵 No renderer available!');
+                        }
+                    } catch (error) {
+                        console.error('🔵 Render error:', error);
+                    }
+                };                // Create overlay with async API
+                L.pixiOverlayAsync(drawCallback, container, {
+                    pane: 'overlayPane'
+                }).then(function(overlay) {
+                    console.log('🔵 Async overlay created, adding to map...');
+                    currentOverlay = overlay;
+                    map.addLayer(overlay);
+
+                    // Pan to test location to make sure it's visible
+                    map.setView([30.2672, -97.7431], 8);
+
+                    // Manually trigger a redraw to ensure callback is called
+                    setTimeout(() => {
+                        console.log('🔵 Manually triggering async redraw...');
+                        if (overlay.redraw) {
+                            overlay.redraw();
+                        }
+                    }, 100);
+
+                    log('✅ Async API test successful! Blue square should be visible in Austin area.', 'success');
+                }).catch(function(error) {
+                    log(`❌ Async API test failed: ${error.message}`, 'error');
+                    console.error('Async API test error:', error);
+                });
+
+            } catch (error) {
+                log(`❌ Async API test failed: ${error.message}`, 'error');
+                console.error('Async API test error:', error);
+            }
+        }
+
+        // Test rendering at origin
+        function testOriginAPI() {
+            log('Testing L.pixiOverlay() at origin (0,0)...');
+
+            try {
+                if (currentOverlay) {
+                    map.removeLayer(currentOverlay);
+                }
+
+                // Create PIXI container and graphics
+                const container = new PIXI.Container();
+                const graphics = new PIXI.Graphics();
+
+                // Draw a large green circle at origin
+                graphics.beginFill(0x00FF00, 0.9);
+                graphics.drawCircle(0, 0, 100); // Large green circle
+                graphics.endFill();
+                container.addChild(graphics);
+
+                // Simple draw callback - position at null island (0,0) and render
+                const drawCallback = function(utils) {
+                    console.log('🟢 Origin draw callback called!');
+                    console.log('🟢 Map center:', utils.getMap().getCenter());
+                    console.log('🟢 Map zoom:', utils.getMap().getZoom());
+
+                    // Position at null island (0°, 0°)
+                    const nullIsland = new L.LatLng(0, 0);
+                    const point = utils.latLngToLayerPoint(nullIsland);
+
+                    graphics.x = point.x;
+                    graphics.y = point.y;
+
+                    console.log('🟢 Null island position:', nullIsland, '-> point:', point);
+                    console.log('🟢 Graphics positioned at:', graphics.x, graphics.y);
+                    console.log('🟢 Container children:', container.children.length);
+
+                    // Force visibility
+                    graphics.visible = true;
+                    container.visible = true;
+
+                    // Manually render the container using the renderer
+                    try {
+                        const renderer = utils.getRenderer();
+                        if (renderer) {
+                            console.log('🟢 Manually rendering container...');
+                            renderer.render(container);
+                        } else {
+                            console.log('🟢 No renderer available!');
+                        }
+                    } catch (error) {
+                        console.error('🟢 Render error:', error);
+                    }
+                };                // Create overlay
+                currentOverlay = L.pixiOverlay(drawCallback, container, {
+                    pane: 'overlayPane'
+                });
+
+                if (currentOverlay) {
+                    map.addLayer(currentOverlay);
+                    // Pan to null island (0,0 lat/lng)
+                    map.setView([0, 0], 6);
+
+                    // Manually trigger a redraw
+                    setTimeout(() => {
+                        console.log('🟢 Manually triggering origin redraw...');
+                        if (currentOverlay.redraw) {
+                            currentOverlay.redraw();
+                        }
+                    }, 100);
+
+                    log('✅ Origin test! Green circle should be visible at Null Island (0°, 0°).', 'success');
+                } else {
+                    log('❌ Failed to create overlay for origin test', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ Origin test failed: ${error.message}`, 'error');
+                console.error('Origin test error:', error);
+            }
+        }
+
+        // Test gradient compatibility (v8.8.0+ textureSpace behavior)
+        function testGradientAPI() {
+            log('Testing gradient compatibility (v8.8.0+ textureSpace)...');
+
+            try {
+                if (currentOverlay) {
+                    map.removeLayer(currentOverlay);
+                }
+
+                const container = new PIXI.Container();
+                const graphics = new PIXI.Graphics();
+
+                // Create a gradient fill (requires testing both local and global space)
+                const gradient = new PIXI.Graphics();
+                gradient.beginFill(0xFF6B6B, 1.0);
+                gradient.drawRect(0, 0, 100, 50);
+                gradient.beginFill(0x4ECDC4, 1.0);
+                gradient.drawRect(0, 50, 100, 50);
+                gradient.endFill();
+
+                // Create gradient texture
+                const gradientTexture = PIXI.RenderTexture.create({ width: 100, height: 100 });
+                const tempRenderer = PIXI.autoDetectRenderer({ width: 100, height: 100 });
+                tempRenderer.render(gradient, { renderTexture: gradientTexture });
+
+                // Test shape with gradient fill
+                graphics.beginTextureFill({
+                    texture: gradientTexture,
+                    // Test both textureSpace modes for v8.8.0+ compatibility
+                    matrix: new PIXI.Matrix(1, 0, 0, 1, 0, 0)
+                });
+                graphics.drawRect(-50, -50, 100, 100);
+                graphics.endFill();
+
+                container.addChild(graphics);
+
+                const drawCallback = function(utils) {
+                    console.log('🟡 Gradient draw callback called!');
+
+                    // Position at Miami, Florida
+                    const testLatLng = new L.LatLng(25.7617, -80.1918);
+                    const point = utils.latLngToLayerPoint(testLatLng);
+
+                    graphics.x = point.x;
+                    graphics.y = point.y;
+
+                    console.log('🟡 Gradient graphics positioned at:', graphics.x, graphics.y);
+
+                    graphics.visible = true;
+                    container.visible = true;
+
+                    try {
+                        const renderer = utils.getRenderer();
+                        if (renderer) {
+                            console.log('🟡 Rendering gradient container...');
+                            renderer.render(container);
+                        }
+                    } catch (error) {
+                        console.error('🟡 Gradient render error:', error);
+                    }
+                };
+
+                currentOverlay = L.pixiOverlay(drawCallback, container, {
+                    pane: 'overlayPane'
+                });
+
+                if (currentOverlay) {
+                    map.addLayer(currentOverlay);
+                    map.setView([25.7617, -80.1918], 8);
+
+                    setTimeout(() => {
+                        console.log('🟡 Triggering gradient redraw...');
+                        if (currentOverlay.redraw) {
+                            currentOverlay.redraw();
+                        }
+                    }, 100);
+
+                    log('✅ Gradient test successful! Gradient rectangle should be visible in Miami area.', 'success');
+                }
+
+            } catch (error) {
+                log(`❌ Gradient test failed: ${error.message}`, 'error');
+                console.error('Gradient test error:', error);
+            }
+        }
+
+        // Test text rendering compatibility (v8.11.0+ anchor/padding behavior)
+        function testTextAPI() {
+            log('Testing text rendering compatibility (v8.11.0+ anchor behavior)...');
+
+            try {
+                if (currentOverlay) {
+                    map.removeLayer(currentOverlay);
+                }
+
+                const container = new PIXI.Container();
+
+                // Create text with various anchor settings to test v8.11.0+ behavior
+                const textStyle = new PIXI.TextStyle({
+                    fontFamily: 'Arial',
+                    fontSize: 24,
+                    fill: 0x333333,
+                    stroke: 0xFFFFFF,
+                    strokeThickness: 3,
+                    padding: 10 // Test padding behavior changes in v8.11.0
+                });
+
+                const text1 = new PIXI.Text('Seattle (anchor 0,0)', textStyle);
+                text1.anchor.set(0, 0);
+
+                const text2 = new PIXI.Text('Portland (anchor 0.5,0.5)', textStyle);
+                text2.anchor.set(0.5, 0.5);
+
+                const text3 = new PIXI.Text('San Francisco (anchor 1,1)', textStyle);
+                text3.anchor.set(1, 1);
+
+                container.addChild(text1, text2, text3);
+
+                const drawCallback = function(utils) {
+                    console.log('🟠 Text draw callback called!');
+
+                    // Position texts at different West Coast cities
+                    const seattle = utils.latLngToLayerPoint(new L.LatLng(47.6062, -122.3321));
+                    const portland = utils.latLngToLayerPoint(new L.LatLng(45.5152, -122.6784));
+                    const sanfran = utils.latLngToLayerPoint(new L.LatLng(37.7749, -122.4194));
+
+                    text1.position.set(seattle.x, seattle.y);
+                    text2.position.set(portland.x, portland.y);
+                    text3.position.set(sanfran.x, sanfran.y);
+
+                    console.log('🟠 Text positions:', { seattle, portland, sanfran });
+
+                    container.visible = true;
+                    text1.visible = true;
+                    text2.visible = true;
+                    text3.visible = true;
+
+                    try {
+                        const renderer = utils.getRenderer();
+                        if (renderer) {
+                            console.log('🟠 Rendering text container...');
+                            renderer.render(container);
+                        }
+                    } catch (error) {
+                        console.error('🟠 Text render error:', error);
+                    }
+                };
+
+                currentOverlay = L.pixiOverlay(drawCallback, container, {
+                    pane: 'overlayPane'
+                });
+
+                if (currentOverlay) {
+                    map.addLayer(currentOverlay);
+                    map.setView([45.5152, -122.6784], 6); // Center on Portland
+
+                    setTimeout(() => {
+                        console.log('🟠 Triggering text redraw...');
+                        if (currentOverlay.redraw) {
+                            currentOverlay.redraw();
+                        }
+                    }, 100);
+
+                    log('✅ Text test successful! Text labels should be visible on West Coast cities.', 'success');
+                }
+
+            } catch (error) {
+                log(`❌ Text test failed: ${error.message}`, 'error');
+                console.error('Text test error:', error);
+            }
+        }
+
+        // Log initial state
+        log('Leaflet.PixiOverlay v2.0.0-beta.1 loaded');
+        log(`Pixi.js version: ${PIXI.VERSION}`);
+        log(`Leaflet version: ${L.version}`);
+
+        // Check which initialization method will be used
+        if (window.L && L.PixiOverlay) {
+            const testOverlay = new L.PixiOverlay(function() {}, new PIXI.Container());
+            if (testOverlay._needsAsyncInit) {
+                log('🔄 Pixi.js v8+ detected - will use async initialization');
+            } else {
+                log('🔄 Pixi.js v7 or earlier detected - will use sync initialization');
+            }
+        }
+    </script>
+</body>
+</html>
